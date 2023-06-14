@@ -725,6 +725,72 @@ void TFT_Display()
     } //
 }
 
+void Handle()
+{
+    switch (handleStep)
+    {
+    case step1: // kéo đoạn 1 vào
+    {
+        moveWire(WireLength);
+        handleStep = step2;
+    }
+    break;
+    case step2: // đưa dao tuốt xuống
+    {
+        t1 = millis();
+        myservo.write(BladeAngle);
+        handleStep = step3;
+    }
+    break;
+    case step3: // cắt tuốt đoạn 1
+    {
+        if (cuttingSelect == 0) // servo
+        {
+            if (millis() - t1 > 2000)
+            {
+                myservo.write(OpenAngle);
+            }
+            handleStep = step4;
+        }
+        else
+        {
+            // tuốt dây bằng động cơ Step
+        }
+    }
+    break;
+    case step4:
+    {
+        if (cuttingSelect == 0) // servo
+        {
+            if (millis() - t1 > 4000)
+            {
+                handleStep = step5;
+            }
+        }
+        else
+        {
+            // tuốt dây bằng động cơ Step
+        }
+    }
+    break;
+    case step5:
+    {
+        handleStep = step6;
+    }
+    break;
+    case step6:
+    {
+        handleStep = step7;
+    }
+    break;
+    case step7:
+    {
+        soluong++;
+    }
+    break;
+    }
+}
+
 void PrintMonitor()
 {
     Serial.print("StripLength1: ");
@@ -738,5 +804,7 @@ void PrintMonitor()
     Serial.print(" | ");
     Serial.print("Quantity: ");
     Serial.print(Quantity);
-    Serial.println("  ");
+    Serial.print(" | ");
+    Serial.print("StepHandle: ");
+    Serial.println(handleStep);
 }

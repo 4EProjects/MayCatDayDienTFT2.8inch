@@ -40,23 +40,26 @@ uint8_t
     fillScreenSetting = 0;
 
 // ========= THÔNG SỐ CÀI ĐẶT HỆ THỐNG =========== //
+// TFT cài đặt thong số HOME()
 float
     WireLength = 0.0,   // Chiều dài của dây
     StripLength1 = 0.0, // Chiều dài tuốt 1
     StripLength2 = 0.0, // Chiều dài tuốt 2
     Diameter = 10.0;    // Đường kính trục con lăn
 int16_t
-    Quantity = 0,      //     Số lượng
-    OpenAngle = 0,     //     Góc tự nhiên
-    CloseAngle = 0,    //     Góc cắt
-    BladeAngle = 0,    //     Góc tuốt
-    CutSpeed = 50,     //     Tốc độ cắt
-    WireSpeed = 50,    //     Tốc độ dây
+    Quantity = 0; //     Số lượng
+// SETTING()
+int16_t
+    OpenAngle = 0,     //     Góc tự nhiên (độ)
+    CloseAngle = 0,    //     Góc cắt      (độ)
+    BladeAngle = 0,    //     Góc tuốt     (độ)
+    CutSpeed = 50,     //     Tốc độ cắt   (%)
+    WireSpeed = 50,    //     Tốc độ dây   (%)
+    cuttingSelect = 0, //     lựa chọn loại kéo cắt nào | Servo = 0 hoặc StepMotor = 1
     timeServo1deg = 3; //     Tốc độ khi cắt bằng servo 60deg = 0.1s -> 1deg = 0.1/60
 uint8_t
     StartState = 0,
-    SettingPage = 0,
-    cuttingSelect = 0; // lựa chọn loại kéo cắt nào | Servo = 0 hoặc StepMotor = 1
+    SettingPage = 0;
 
 // ========= THÔNG SỐ CÀI ĐẶT ĐỘNG CƠ BƯỚC ========== //
 const float pi = 3.141592;                            // Số Pi
@@ -65,7 +68,7 @@ const float Half_Step = 0.5;                          // 1/2
 const float Quarter_Step = 0.25;                      // 1/4
 const float Eighth_Step = 0.125;                      // 1/8
 const float Sixteenth_Step = 0.0625;                  // 1/16
-float Microstep = Full_Step;                          // Chế độ
+float Microstep = Eighth_Step;                        // Chế độ
 float StepPerRound = 200.0 / Microstep;               // Số xung để quay được vòng 360 độ
 float LengthPerStep = (pi * 1.8 * Microstep) / 360.0; // Chiều dài l trên một bước (R*pi*n)/180 = (D*pi*n)/360
 const uint16_t SetMaxSpeed = 1000.0 / Microstep;      // Set tốc độ tối đa động cơ
@@ -86,6 +89,18 @@ typedef struct
   uint8_t EEPROM_cuttingSelect;
 } ParameterSetting;
 ParameterSetting EEPROM_Setting;
+
+typedef enum
+{
+  step1 = 0, // kéo đoạn 1 vào
+  step2,     // cắt tuốt đoạn 1
+  step3,     // kéo đoạn 2 vào
+  step4,     // cắt tuốt đoạn 2
+  step5,     // kéo đoạn 3 vào
+  step6,     // cắt đoạn 3
+  step7,     // cắt đoạn 3
+} HANDLE_STEP;
+HANDLE_STEP handleStep;
 
 // Keypad start position, key sizes and spacing, Vị trí gốc của cụm bàn phím ảo
 #define KEY_X 60 // Centre of key
@@ -160,11 +175,13 @@ AccelStepper extruderStepper(1, STEPPER1_STEP_PIN, STEPPER1_DIR_PIN);
 AccelStepper linMotSteppers(1, STEPPER2_STEP_PIN, STEPPER2_DIR_PIN);
 TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
 #define CALIBRATION_FILE "/TouchCalData1"
-#define REPEAT_CAL false // = True nếu muốn cân bằng điểm cảm ứng
+#define REPEAT_CAL true // = True nếu muốn cân bằng điểm cảm ứng
 
 // Khai báo biến để lưu trữ trạng thái ngắt
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool interruptTriggered = false; // Cờ báo hiệu ngắt đã xảy ra
+
+uint16_t t1 = 0;
 
 // Hàm xử lý ngắt ngoài
 void IRAM_ATTR externalInterruptHandler()
@@ -187,7 +204,7 @@ void setup()
 
   // Initialise the TFT screen
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(3);
   tft.invertDisplay(1);
   touch_calibrate();
   // Khởi tạo Servo
@@ -221,7 +238,7 @@ void loop(void)
       tft.setTextColor(TFT_BLACK, TFT_GREEN);
       tft.setCursor(205, 175);
       tft.print(String(soluong + 1) + " ");
-      
+
       if (StripLength1 == 0 && StripLength2 == 0) // Chỉ cắt, không tuốt
       {
         Serial.println("=== CAT ===");
@@ -258,7 +275,7 @@ void loop(void)
         catDay();
         soluong++;
       }
-
+      // Handle();
     }
     if (soluong >= Quantity)
     {
